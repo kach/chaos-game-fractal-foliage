@@ -1,0 +1,158 @@
+<!--
+A very janky IFS visualization + export service!
+-->
+
+<canvas id="world", width=300, height=300></canvas>
+
+<style>
+canvas {
+  border: 1px solid black;
+}
+</style>
+
+<script>
+// This actually *is* a heart
+var heart = [
+ [[0.680778443813324, -0.12737157940864563, 0.1665104180574417],
+  [0.434739351272583, 0.3145262598991394, -0.11539103835821152],
+  [0.0, 0.0, 1.0]],
+ [[0.03811686486005783, -0.6469818949699402, -0.18363310396671295],
+  [0.37149864435195923, -0.0863550677895546, 0.22217406332492828],
+  [0.0, 0.0, 1.0]],
+ [[-0.2682231068611145, -0.587000846862793, 0.2192404717206955],
+  [-0.42956259846687317, 0.03276482969522476, 0.19686093926429749],
+  [0.0, 0.0, 1.0]],
+ [[0.45173531770706177, -0.39880725741386414, -0.10600940138101578],
+  [0.011635805480182171, 0.6376537680625916, -0.15876419842243195],
+  [0.0, 0.0, 1.0]]
+];
+
+// This is a tree
+heart = [[[0.4670822322368622, -0.5178488492965698, 0.02417873963713646],
+  [0.5178488492965698, 0.4670822322368622, -0.06665170192718506],
+  [0.0, 0.0, 1.0]],
+ [[-0.5273969173431396, 0.10378921031951904, 0.03260470926761627],
+  [-0.10378921031951904, -0.5273969173431396, 0.18428421020507812],
+  [0.0, 0.0, 1.0]],
+ [[-0.4779031574726105, 0.33066949248313904, -0.07807090133428574],
+  [-0.33066949248313904, -0.4779031574726105, -0.27771109342575073],
+  [0.0, 0.0, 1.0]]];
+
+// This is a different tree
+heart = [[[-0.17804273962974548, 0.5396100282669067, 0.057223450392484665],
+  [-0.5396100282669067, -0.17804273962974548, 0.15670515596866608],
+  [0.0, 0.0, 1.0]],
+ [[0.5284784436225891, -0.041658446192741394, 0.14836160838603973],
+  [0.041658446192741394, 0.5284784436225891, -0.14242511987686157],
+  [0.0, 0.0, 1.0]],
+ [[-0.04138724505901337, -0.6801008582115173, -0.14508746564388275],
+  [0.6801008582115173, -0.04138724505901337, -0.20607535541057587],
+  [0.0, 0.0, 1.0]]];
+
+var world = document.getElementById('world');
+var ctx = world.getContext('2d');
+
+// I always thought the word "lerp" was really funny, and that nobody should be
+// able to say it out loud in (e.g.) a SIGGRAPH talk with a straight face.
+function lerp(a, b, x) {
+  return a * (1 - x) + b * x;
+}
+
+// Once upon a time, I dreamt I was a butterfly...
+function transform(ctx, matrix, x) {
+  var scale = Math.sqrt(
+    Math.pow(matrix[0][0], 2) + Math.pow(matrix[1][0], 2)
+  );
+  var theta = Math.atan2(matrix[1][0], matrix[0][0]);
+  scale = lerp(scale, 1, x);
+  theta = lerp(theta, 0, x);
+  var newmat = [
+    [ scale * Math.cos(theta), scale * -Math.sin(theta) ],
+    [ scale * Math.sin(theta), scale * Math.cos(theta) ]
+  ];
+
+  ctx.transform(
+    newmat[0][0], newmat[1][0],
+    newmat[0][1], newmat[1][1],
+    lerp(matrix[0][2], 0, x), lerp(matrix[1][2], 0, x)
+  );
+}
+
+// A picture is a secret about a secret, the more it tells you the less you
+// know. --Diane Arbus
+function snapshot() {
+  var nc = document.createElement('canvas');
+  nc.width = world.width;
+  nc.height = world.height;
+  nc.getContext('2d').drawImage(world, 0, 0);
+  return nc;
+}
+
+var SCALE = world.width;
+var TRANSLATE = SCALE / 2;
+ctx.translate(TRANSLATE, TRANSLATE);
+ctx.strokeRect(0, 0, 5, 5);
+ctx.scale(SCALE, SCALE);
+
+// Like a circle in a spiral, like a wheel within a wheel...
+for (var j = 0; j < 12; j++) {
+  var nc = snapshot();
+  for (var i = 0; i < heart.length; i++) {
+    ctx.save();
+    transform(ctx, heart[i], 0.);
+    ctx.drawImage(nc, -TRANSLATE / SCALE, -TRANSLATE / SCALE, world.width / SCALE, world.height / SCALE);
+    ctx.restore();
+  }
+}
+var nc = snapshot();
+
+var output = [];
+var step_ = 150;
+window.setInterval(function() {
+  step_--;
+  if (step_ < 0) step_ = 150;
+  step = Math.min(100, Math.abs(step_));
+  world.width = world.width;
+
+  var wctx = world.getContext('2d');
+  wctx.fillStyle = 'white';
+  wctx.fillRect(0, 0, world.width, world.height);
+
+  for (var i = 0; i < heart.length; i++) {
+    var tmp = document.createElement('canvas');
+    tmp.width = world.width;
+    tmp.height = world.height;
+    var ctx = tmp.getContext('2d');
+    ctx.translate(TRANSLATE, TRANSLATE);
+    ctx.scale(SCALE, SCALE);
+    ctx.rotate(Math.PI); // "You're telling me that Germany isn't where we
+                         //  think it is?"
+                         // "Nothing is where you think it is."
+                         // "Where is it?"
+                         // "I'm glad you asked..."
+
+    ctx.save();
+    transform(ctx, heart[i], step / 100);
+    ctx.lineWidth = 0.05;
+    ctx.drawImage(nc, -TRANSLATE / SCALE, -TRANSLATE / SCALE, world.width / SCALE, world.height / SCALE);
+    ctx.fillStyle = 'hsla(' +
+      (120 + i * (360 / heart.length)) + ', ' +
+      (100 - Math.abs(0.5 - step/100) * 200) + '%, 30%, ' +
+      (1) + ')';
+
+    ctx.globalCompositeOperation = "source-in";
+    ctx.fillRect(-TRANSLATE / SCALE, -TRANSLATE / SCALE, world.width / SCALE, world.height / SCALE);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = 'rgba(255, 255, 0, ' + (0.5 - Math.abs(0.5 - step/100)) + ')';
+    ctx.strokeRect(-TRANSLATE / SCALE, -TRANSLATE / SCALE, world.width / SCALE, world.height / SCALE);
+    ctx.restore();
+
+    wctx.drawImage(tmp, 0, 0);
+  }
+  if (output.length < 150) {
+    output.push(world.toDataURL('image/jpeg')); // pngs have transparency woes
+  } // to export (with apologies to anyone who's ever tried to teach me
+    // anything about HCI): run console.log(JSON.stringify(output)) and then
+    // copy/paste the very long resulting string into out.json :)
+}, 1000 / 60);
+</script>
